@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    // Set the namespace for generated R and BuildConfig classes.
+    // Specify the namespace for generated R and BuildConfig classes.
     namespace = "com.example.flapventure"
     compileSdk = 33
 
@@ -17,11 +17,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Tell Gradle to also scan the "values/themes" folder for resource files.
+    // Include additional resource directories (for example, values/themes).
     sourceSets {
         getByName("main") {
-            // 'src/main/res' is included by default.
-            // Add the additional folder:
             res.srcDirs("src/main/res", "src/main/res/values/themes")
         }
     }

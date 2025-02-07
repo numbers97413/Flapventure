@@ -1,6 +1,8 @@
 package com.example.flapventure
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -14,31 +16,49 @@ import kotlin.random.Random
 // Data class representing a pair of pipes and a flag for scoring.
 data class PipePair(var top: Rect, var bottom: Rect, var scored: Boolean = false)
 
-class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(context, attrs), Runnable, SurfaceHolder.Callback {
+class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(context, attrs),
+    Runnable, SurfaceHolder.Callback {
 
     private var gameThread: Thread? = null
     @Volatile private var isPlaying = false
     private val surfaceHolder: SurfaceHolder = holder
     private val paint = Paint()
 
-    // Bird properties.
+    // --- Bird Sprite Setup with Transparency ---
+    // Use BitmapFactory options to preserve transparency.
+    private val bitmapOptions = BitmapFactory.Options().apply {
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    // Load the bird.webp image from res/drawable.
+    private val originalBirdBitmap: Bitmap =
+        BitmapFactory.decodeResource(context.resources, R.drawable.bird, bitmapOptions)
+    // Calculate desired dimensions in pixels (140dp x 112dp for twice the previous size).
+    private val desiredWidth = (140 * resources.displayMetrics.density).toInt()
+    private val desiredHeight = (112 * resources.displayMetrics.density).toInt()
+    // Scale the image to the desired dimensions.
+    private val birdBitmap: Bitmap =
+        Bitmap.createScaledBitmap(originalBirdBitmap, desiredWidth, desiredHeight, true)
+    // Use these dimensions for drawing.
+    private val birdWidth = birdBitmap.width.toFloat()
+    private val birdHeight = birdBitmap.height.toFloat()
+
+    // --- Bird Physics Properties ---
     private var birdX = 100f
     private var birdY = 300f
-    private val birdWidth = 50
-    private val birdHeight = 40
     private var birdVel = 0f
     private val gravity = 0.5f
     private val jumpStrength = -10f
 
-    // Pipe properties.
+    // --- Pipe Properties (drawn as blocks) ---
     private val pipeWidth = 150
-    private val pipeGap = 300
+    // Increased pipe gap: now 50% wider, from 400 to 600.
+    private val pipeGap = 600
     private val pipeVelocity = 5f
     private var lastPipeTime = System.currentTimeMillis()
     private val pipeInterval = 2000L // milliseconds between pipe generations
     private val pipes = mutableListOf<PipePair>()
 
-    // Score and game state.
+    // --- Game State ---
     private var score = 0
     private var gameOver = false
 
@@ -57,18 +77,15 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
     // Update game state.
     private fun update() {
         if (!gameOver) {
-            // Update bird physics.
             birdVel += gravity
             birdY += birdVel
 
-            // Generate new pipes at intervals.
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastPipeTime > pipeInterval) {
                 lastPipeTime = currentTime
                 addPipe()
             }
 
-            // Move pipes and update score.
             val iterator = pipes.iterator()
             while (iterator.hasNext()) {
                 val pipePair = iterator.next()
@@ -79,22 +96,27 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
                     score++
                     pipePair.scored = true
                 }
-
                 if (pipePair.top.right < 0) {
                     iterator.remove()
                 }
             }
 
-            // Check collisions.
-            val birdRect = Rect(birdX.toInt(), birdY.toInt(), (birdX + birdWidth).toInt(), (birdY + birdHeight).toInt())
+            // Create a smaller collision rectangle for the bird (inset by 10% on all sides).
+            val insetX = (birdWidth * 0.1).toInt()
+            val insetY = (birdHeight * 0.1).toInt()
+            val birdRect = Rect(
+                (birdX + insetX).toInt(),
+                (birdY + insetY).toInt(),
+                (birdX + birdWidth - insetX).toInt(),
+                (birdY + birdHeight - insetY).toInt()
+            )
+
             for (pipePair in pipes) {
                 if (Rect.intersects(birdRect, pipePair.top) ||
                     Rect.intersects(birdRect, pipePair.bottom)) {
                     gameOver = true
                 }
             }
-
-            // Check screen boundaries.
             if (birdY < 0 || birdY + birdHeight > height) {
                 gameOver = true
             }
@@ -111,16 +133,15 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         pipes.add(PipePair(topRect, bottomRect))
     }
 
-    // Draw game objects using simple blocks.
+    // Draw game elements.
     private fun draw() {
         if (surfaceHolder.surface.isValid) {
             val canvas: Canvas = surfaceHolder.lockCanvas()
-            // Clear the canvas with a white background.
+            // Clear the canvas with white.
             canvas.drawColor(Color.WHITE)
 
-            // Draw the bird as a black rectangle.
-            paint.color = Color.BLACK
-            canvas.drawRect(birdX, birdY, birdX + birdWidth, birdY + birdHeight, paint)
+            // Draw the bird using the bird.webp sprite.
+            canvas.drawBitmap(birdBitmap, birdX, birdY, paint)
 
             // Draw pipes as green rectangles.
             paint.color = Color.GREEN
@@ -134,7 +155,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
             paint.textSize = 60f
             canvas.drawText("Score: $score", 50f, 100f, paint)
 
-            // Display a game over message if needed.
+            // If game over, display game over messages.
             if (gameOver) {
                 paint.textSize = 100f
                 canvas.drawText("Game Over", width / 4f, height / 2f, paint)
@@ -145,7 +166,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         }
     }
 
-    // Control the frame rate (~60fps).
+    // Control frame rate (~60fps).
     private fun control() {
         try {
             Thread.sleep(17)
@@ -156,12 +177,18 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (event?.action == MotionEvent.ACTION_DOWN) {
+            performClick() // For accessibility.
             if (!gameOver) {
                 birdVel = jumpStrength
             } else {
                 resetGame()
             }
         }
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 
