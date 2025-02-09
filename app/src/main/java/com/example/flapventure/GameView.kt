@@ -25,20 +25,20 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
     private val paint = Paint()
 
     // --- Bird Sprite Setup with Transparency ---
-    // Use BitmapFactory options to preserve transparency.
+    // Set BitmapFactory options to preserve transparency.
     private val bitmapOptions = BitmapFactory.Options().apply {
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
-    // Load the bird.webp image from res/drawable.
+    // Load the original bird.webp from res/drawable.
     private val originalBirdBitmap: Bitmap =
         BitmapFactory.decodeResource(context.resources, R.drawable.bird, bitmapOptions)
-    // Calculate desired dimensions in pixels (140dp x 112dp for twice the previous size).
-    private val desiredWidth = (140 * resources.displayMetrics.density).toInt()
-    private val desiredHeight = (112 * resources.displayMetrics.density).toInt()
-    // Scale the image to the desired dimensions.
+    // Calculate desired dimensions in pixels (70dp x 56dp).
+    private val desiredWidth = (120 * resources.displayMetrics.density).toInt()
+    private val desiredHeight = (96 * resources.displayMetrics.density).toInt()
+    // Scale the original image to the desired dimensions.
     private val birdBitmap: Bitmap =
         Bitmap.createScaledBitmap(originalBirdBitmap, desiredWidth, desiredHeight, true)
-    // Use these dimensions for drawing.
+    // Use these dimensions for drawing and collision detection.
     private val birdWidth = birdBitmap.width.toFloat()
     private val birdHeight = birdBitmap.height.toFloat()
 
@@ -51,7 +51,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
 
     // --- Pipe Properties (drawn as blocks) ---
     private val pipeWidth = 150
-    // Increased pipe gap: now 50% wider, from 400 to 600.
+    // Increased pipe gap: 600 (50% wider than previous 400).
     private val pipeGap = 600
     private val pipeVelocity = 5f
     private var lastPipeTime = System.currentTimeMillis()
@@ -101,9 +101,9 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
                 }
             }
 
-            // Create a smaller collision rectangle for the bird (inset by 10% on all sides).
-            val insetX = (birdWidth * 0.1).toInt()
-            val insetY = (birdHeight * 0.1).toInt()
+            // Create a slightly inset collision rectangle for the bird.
+            val insetX = (birdWidth * 0.3).toInt()
+            val insetY = (birdHeight * 0.3).toInt()
             val birdRect = Rect(
                 (birdX + insetX).toInt(),
                 (birdY + insetY).toInt(),

@@ -4,7 +4,6 @@ plugins {
 }
 
 android {
-    // Specify the namespace for generated R and BuildConfig classes.
     namespace = "com.example.flapventure"
     compileSdk = 33
 
@@ -17,7 +16,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Include additional resource directories (for example, values/themes).
+    // Include additional resource directories (if you have themes in a subfolder)
     sourceSets {
         getByName("main") {
             res.srcDirs("src/main/res", "src/main/res/values/themes")
