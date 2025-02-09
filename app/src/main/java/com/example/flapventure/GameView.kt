@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import android.media.MediaPlayer
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SurfaceHolder
@@ -24,21 +25,16 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
     private val surfaceHolder: SurfaceHolder = holder
     private val paint = Paint()
 
-    // --- Bird Sprite Setup with Transparency ---
-    // Set BitmapFactory options to preserve transparency.
+    // --- Bird Sprite Setup with Transparency and Scaling ---
     private val bitmapOptions = BitmapFactory.Options().apply {
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
-    // Load the original bird.webp from res/drawable.
     private val originalBirdBitmap: Bitmap =
         BitmapFactory.decodeResource(context.resources, R.drawable.bird, bitmapOptions)
-    // Calculate desired dimensions in pixels (70dp x 56dp).
-    private val desiredWidth = (120 * resources.displayMetrics.density).toInt()
-    private val desiredHeight = (96 * resources.displayMetrics.density).toInt()
-    // Scale the original image to the desired dimensions.
+    private val desiredWidth = (70 * 1.8 * resources.displayMetrics.density).toInt()
+    private val desiredHeight = (56 * 1.8 * resources.displayMetrics.density).toInt()
     private val birdBitmap: Bitmap =
         Bitmap.createScaledBitmap(originalBirdBitmap, desiredWidth, desiredHeight, true)
-    // Use these dimensions for drawing and collision detection.
     private val birdWidth = birdBitmap.width.toFloat()
     private val birdHeight = birdBitmap.height.toFloat()
 
@@ -51,19 +47,26 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
 
     // --- Pipe Properties (drawn as blocks) ---
     private val pipeWidth = 150
-    // Increased pipe gap: 600 (50% wider than previous 400).
     private val pipeGap = 600
     private val pipeVelocity = 5f
     private var lastPipeTime = System.currentTimeMillis()
-    private val pipeInterval = 2000L // milliseconds between pipe generations
+    private val pipeInterval = 2000L
     private val pipes = mutableListOf<PipePair>()
 
     // --- Game State ---
     private var score = 0
     private var gameOver = false
+    private var gameOverSoundPlayed = false
 
     init {
         surfaceHolder.addCallback(this)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Center the bird vertically and position it at 25% of the screen width.
+        birdX = (w * 0.25).toFloat()
+        birdY = (h / 2f - birdHeight / 2f)
     }
 
     override fun run() {
@@ -74,7 +77,6 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         }
     }
 
-    // Update game state.
     private fun update() {
         if (!gameOver) {
             birdVel += gravity
@@ -101,7 +103,6 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
                 }
             }
 
-            // Create a slightly inset collision rectangle for the bird.
             val insetX = (birdWidth * 0.3).toInt()
             val insetY = (birdHeight * 0.3).toInt()
             val birdRect = Rect(
@@ -120,10 +121,20 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
             if (birdY < 0 || birdY + birdHeight > height) {
                 gameOver = true
             }
+        } else {
+            if (!gameOverSoundPlayed) {
+                playGameOverSound()
+            }
         }
     }
 
-    // Create a new pipe pair with a random gap.
+    private fun playGameOverSound() {
+        val mp = MediaPlayer.create(context, R.raw.gameover)
+        mp.start()
+        mp.setOnCompletionListener { it.release() }
+        gameOverSoundPlayed = true
+    }
+
     private fun addPipe() {
         val minPipeHeight = 100
         val maxPipeHeight = height - pipeGap - 100
@@ -133,29 +144,19 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         pipes.add(PipePair(topRect, bottomRect))
     }
 
-    // Draw game elements.
     private fun draw() {
         if (surfaceHolder.surface.isValid) {
             val canvas: Canvas = surfaceHolder.lockCanvas()
-            // Clear the canvas with white.
             canvas.drawColor(Color.WHITE)
-
-            // Draw the bird using the bird.webp sprite.
             canvas.drawBitmap(birdBitmap, birdX, birdY, paint)
-
-            // Draw pipes as green rectangles.
             paint.color = Color.GREEN
             for (pipePair in pipes) {
                 canvas.drawRect(pipePair.top, paint)
                 canvas.drawRect(pipePair.bottom, paint)
             }
-
-            // Draw the score in blue.
             paint.color = Color.BLUE
             paint.textSize = 60f
             canvas.drawText("Score: $score", 50f, 100f, paint)
-
-            // If game over, display game over messages.
             if (gameOver) {
                 paint.textSize = 100f
                 canvas.drawText("Game Over", width / 4f, height / 2f, paint)
@@ -166,7 +167,6 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         }
     }
 
-    // Control frame rate (~60fps).
     private fun control() {
         try {
             Thread.sleep(17)
@@ -177,7 +177,7 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
 
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (event?.action == MotionEvent.ACTION_DOWN) {
-            performClick() // For accessibility.
+            performClick()
             if (!gameOver) {
                 birdVel = jumpStrength
             } else {
@@ -192,14 +192,14 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         return true
     }
 
-    // Reset the game state.
     private fun resetGame() {
-        birdX = 100f
-        birdY = 300f
+        birdX = (width * 0.25).toFloat()
+        birdY = (height / 2f - birdHeight / 2f)
         birdVel = 0f
         pipes.clear()
         score = 0
         gameOver = false
+        gameOverSoundPlayed = false
         lastPipeTime = System.currentTimeMillis()
     }
 
@@ -218,7 +218,6 @@ class GameView(context: Context, attrs: AttributeSet? = null) : SurfaceView(cont
         gameThread?.start()
     }
 
-    // SurfaceHolder callbacks.
     override fun surfaceCreated(holder: SurfaceHolder) { resume() }
     override fun surfaceDestroyed(holder: SurfaceHolder) { pause() }
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { }
